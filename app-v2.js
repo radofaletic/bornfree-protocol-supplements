@@ -1,10 +1,11 @@
 /**
  * @file The main BF Protocol app.
- * @copyright Rado Faletič 2022
+ * @copyright Rado Faletič 2022, 2023
  * @author Rado Faletič
+ * @version 2
  */
 
-const maxStartDay = 10;
+const maxStartWeek = 5;
 const fastingDays = 3;
 let totalNumberOfDays = 90;
 let supplementMasterList = { };
@@ -19,10 +20,13 @@ window.onload = () => {
 	}
 	document.getElementById('nDaysRequired').value = totalNumberOfDays;
 	
+	document.getElementById('protocolVersion').innerText = protocolVersion;
+	document.getElementById('protocolVersion').setAttribute('href', protocolUrl);
+	
 	supplementMasterList = createSupplementMasterList(supplements);
 	drawSupplementsIntro(['supplementsRequiredIntro', 'supplementsOptionalIntro'], supplementMasterList);
 	drawShoppingList('shoppingList', supplementMasterList);
-	drawScheduleHeader();
+	drawScheduleHeader('scheduleHeader', supplementMasterList);
 	drawSchedule('schedule', supplementMasterList);
 	
 	
@@ -78,9 +82,9 @@ function printSchedule(id) {
 		'<meta charset="utf-8">' +
 		'<meta name="viewport" content="width=device-width, initial-scale=1">' +
 		'<title>BornFree Protocol</title>' +
-		'<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-Zenh87qX5JnK2Jl0vWa8Ck2rdkQ2Bzep5IDxbcnCeuOxjzrPF/et3URy9Bv1WTRi" crossorigin="anonymous">' +
+		'<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-rbsA2VBKQhggwzxH7pPCaAqO46MgnOM80zW1RWuH61DGLwZJEdK2Kadq2F9CUG65" crossorigin="anonymous">' +
 		'<style>' +
-		'@page { size: landscape; }' +
+		'@page { size: portrait; }' +
 		'</style>' +
 		'</head>' +
 		'<body class="container-fluid">' +
@@ -103,7 +107,7 @@ function createSupplementMasterList(inputItems) {
 	let unsortedInputItems = { };
 	inputItems.forEach(item => {
 		const timeOfDay = (!item.timeOfDay ? 'AA' : item.timeOfDay);
-		const key = String(item.startDay).padStart(2, '0') + '_' + timeOfDay + '_' + (item.required ? '0' : '1') + '_' + String(item.order).padStart(2, '0') + '_' + item.name.replace(/\W/g, '');
+		const key = String(item.startWeek).padStart(2, '0') + '_' + String(item.order).padStart(2, '0') + '_' + (item.required ? '0' : '1') + '_' + timeOfDay + '_' + item.name.replace(/\W/g, '');
 		item.key = key;
 		unsortedInputItems[key] = item;
 	});
@@ -121,20 +125,20 @@ function createSupplementMasterList(inputItems) {
 	delete sortedInputItems;
 	delete unsortedInputItems;
 	
-	let startDays = [];
+	let startWeeks = [];
 	items.forEach(item => {
-		if (!startDays.includes(item.startDay)) {
-			startDays.push(item.startDay);
+		if (!startWeeks.includes(item.startWeek)) {
+			startWeeks.push(item.startWeek);
 		}
 	});
 	
 	let supplementMasterList = { };
-	startDays.forEach(startDay => {
-		supplementMasterList[startDay] = { 'required': [], 'optional': [] };
+	startWeeks.forEach(startWeek => {
+		supplementMasterList[startWeek] = { 'required': [], 'optional': [] };
 		items.forEach(item => {
-			if (item.startDay == startDay) {
+			if (item.startWeek == startWeek) {
 				const requiredKey = item.required ? 'required' : 'optional';
-				supplementMasterList[startDay][requiredKey].push(item);
+				supplementMasterList[startWeek][requiredKey].push(item);
 			}
 		});
 	});
@@ -150,10 +154,10 @@ function createSupplementMasterList(inputItems) {
  * @param {Object} supplementMasterList The list of supplements as a structured and ordered list.
  */
 function drawSupplementsIntro(ids, supplementMasterList) {
-	Object.keys(supplementMasterList).forEach(startDay => {
-		const supplementStartDayList = supplementMasterList[startDay];
-		Object.keys(supplementStartDayList).forEach(required => {
-			const supplements = supplementStartDayList[required];
+	Object.keys(supplementMasterList).forEach(startWeek => {
+		const supplementstartWeekList = supplementMasterList[startWeek];
+		Object.keys(supplementstartWeekList).forEach(required => {
+			const supplements = supplementstartWeekList[required];
 			const id = (required == 'required') ? ids[0] : ids[1];
 			supplements.forEach(supplement => {
 				const id = (supplement.required) ? ids[0] : ids[1];
@@ -233,10 +237,10 @@ function drawSupplementsIntro(ids, supplementMasterList) {
 function drawShoppingList(id, supplementMasterList) {
 	const container = document.getElementById(id);
 	container.innerHTML = '';
-	Object.keys(supplementMasterList).forEach(startDay => {
-		const supplementStartDayList = supplementMasterList[startDay];
-		Object.keys(supplementStartDayList).forEach(required => {
-			const supplements = supplementStartDayList[required];
+	Object.keys(supplementMasterList).forEach(startWeek => {
+		const supplementstartWeekList = supplementMasterList[startWeek];
+		Object.keys(supplementstartWeekList).forEach(required => {
+			const supplements = supplementstartWeekList[required];
 			supplements.forEach(supplement => {
 				if (localStorage.getItem(supplement.key) == 'true') {
 					const row = document.createElement('tr');
@@ -266,10 +270,10 @@ function drawShoppingList(id, supplementMasterList) {
 								doses = Math.ceil(supplement.dosage / option.amountPerDose);
 							}
 							doses *= supplement.dosesPerDay;
-							if (supplement.startDay == 90) {
+							if (supplement.startWeek == 99) {
 								doses *= fastingDays;
 							} else {
-								doses *= totalNumberOfDays - supplement.startDay;
+								doses *= totalNumberOfDays - 7 * (supplement.startWeek - 1);
 							}
 							quantity = (doses <= option.numberOfDoses) ? 1 : Math.ceil(doses / option.numberOfDoses);
 						}
@@ -295,61 +299,76 @@ function drawShoppingList(id, supplementMasterList) {
 /**
  * Draw the supplement schedule header.
  */
-function drawScheduleHeader() {
+function drawScheduleHeader(ids, supplementMasterList) {
+	let weeks = [];
+	let fasting = false;
+	Object.keys(supplementMasterList).forEach(week => {
+		if (week == 99) {
+			fasting = true;
+		} else {
+			weeks.push(week);
+		}
+	});
+	const totalColumns = 3 * weeks.length + (fasting ? 1 : 0);
 	
-	const scheduleHeader1 = document.getElementById('scheduleHeader1');
-	const headerDayLabel = document.createElement('th');
-	headerDayLabel.setAttribute('colspan', (3 * maxStartDay) + 1);
-	headerDayLabel.className = ' align-middle text-center';
-	headerDayLabel.style.borderLeftColor = 'black';
-	headerDayLabel.style.borderRightColor = 'black';
-	headerDayLabel.textContent = 'day';
-	scheduleHeader1.appendChild(headerDayLabel);
-	const headerFastingLabel = document.createElement('th');
-	headerFastingLabel.setAttribute('colspan', 3 * fastingDays);
-	headerFastingLabel.className = 'align-middle text-center';
-	headerFastingLabel.style.borderLeftColor = 'black';
-	headerFastingLabel.style.borderRightColor = 'black';
-	headerFastingLabel.textContent = 'fasting';
-	scheduleHeader1.appendChild(headerFastingLabel);
+	const scheduleHeader1 = document.getElementById(ids + '1');
+	const headerWeekLabel = document.createElement('th');
+	headerWeekLabel.setAttribute('colspan', totalColumns);
+	headerWeekLabel.className = ' align-middle text-center';
+	headerWeekLabel.style.borderLeftColor = 'black';
+	headerWeekLabel.style.borderRightColor = 'black';
+	headerWeekLabel.textContent = 'weeks';
+	scheduleHeader1.appendChild(headerWeekLabel);
+	if (fasting) {
+		const headerFastingLabel = document.createElement('th');
+		headerFastingLabel.setAttribute('colspan', 3);
+		headerFastingLabel.className = 'align-middle text-center';
+		headerFastingLabel.style.borderLeftColor = 'black';
+		headerFastingLabel.style.borderRightColor = 'black';
+		headerFastingLabel.textContent = 'fasting';
+		scheduleHeader1.appendChild(headerFastingLabel);
+	}
 	
-	const scheduleHeader2 = document.getElementById('scheduleHeader2');
-	for (let i=1; i<=maxStartDay; i++) {
+	const scheduleHeader2 = document.getElementById(ids + '2');
+	for (let i=0; i<weeks.length; i++) {
 		const th = document.createElement('th');
 		th.setAttribute('colspan', 3);
 		th.className = 'align-middle text-center';
 		th.style.borderLeftColor = 'black';
 		th.style.borderRightColor = 'black';
-		th.textContent = i + ((i == maxStartDay) ? '+' : '');
+		th.textContent = weeks[i] + ((i == weeks.length - 1) ? '+' : '–' + (weeks[i+1] - 1));
 		scheduleHeader2.appendChild(th);
 		const col = document.createElement('col');
 		col.setAttribute('span', 3);
 		document.getElementById('scheduleColumns').appendChild(col);
 	}
-	const thHellips = document.createElement('th');
-	thHellips.className = 'align-middle text-center ps-3 pe-3';
-	thHellips.setAttribute('rowspan', 3);
-	thHellips.style.borderLeftColor = 'black';
-	thHellips.style.borderRightColor = 'black';
-	thHellips.textContent = ' … ';
-	scheduleHeader2.appendChild(thHellips);
-	const col = document.createElement('col');
-	col.setAttribute('span', 1);
-	document.getElementById('scheduleColumns').appendChild(col);
-	for (let i=1; i<=fastingDays; i++) {
-		const th = document.createElement('th');
-		th.setAttribute('colspan', 3);
-		th.className = 'align-middle text-center';
-		th.style.borderLeftColor = 'black';
-		th.style.borderRightColor = 'black';
-		th.textContent = i;
-		scheduleHeader2.appendChild(th);
+	
+	if (fasting) {
+		const thHellips = document.createElement('th');
+		thHellips.className = 'align-middle text-center ps-3 pe-3';
+		thHellips.setAttribute('rowspan', 3);
+		thHellips.style.borderLeftColor = 'black';
+		thHellips.style.borderRightColor = 'black';
+		thHellips.textContent = ' … ';
+		scheduleHeader2.appendChild(thHellips);
 		const col = document.createElement('col');
-		col.setAttribute('span', 3);
+		col.setAttribute('span', 1);
 		document.getElementById('scheduleColumns').appendChild(col);
+		for (let i=1; i<=1; i++) {
+			const th = document.createElement('th');
+			th.setAttribute('colspan', 3);
+			th.className = 'align-middle text-center';
+			th.style.borderLeftColor = 'black';
+			th.style.borderRightColor = 'black';
+			th.textContent = fastingDays + ' days';
+			scheduleHeader2.appendChild(th);
+			const col = document.createElement('col');
+			col.setAttribute('span', 3);
+			document.getElementById('scheduleColumns').appendChild(col);
+		}
 	}
-	const scheduleHeader3 = document.getElementById('scheduleHeader3');
-	for (let i=0; i<3*maxStartDay; i++) {
+	const scheduleHeader3 = document.getElementById(ids + '3');
+	for (let i=0; i<3*weeks.length; i++) {
 		const th = document.createElement('th');
 		th.className = 'align-middle text-center small initialism';
 		switch (i%3) {
@@ -367,23 +386,25 @@ function drawScheduleHeader() {
 		}
 		scheduleHeader3.appendChild(th);
 	}
-	for (let i=0; i<3*fastingDays; i++) {
-		const th = document.createElement('th');
-		th.className = 'align-middle text-center small initialism';
-		switch (i%3) {
-			case 0:
-				th.style.borderLeftColor = 'black';
-				th.textContent = 'AM';
-				break;
-			case 1:
-				th.textContent = 'M';
-				break;
-			case 2:
-				th.style.borderRightColor = 'black';
-				th.textContent = 'PM';
-				break;
+	if (fasting) {
+		for (let i=0; i<3; i++) {
+			const th = document.createElement('th');
+			th.className = 'align-middle text-center small initialism';
+			switch (i%3) {
+				case 0:
+					th.style.borderLeftColor = 'black';
+					th.textContent = 'AM';
+					break;
+				case 1:
+					th.textContent = 'M';
+					break;
+				case 2:
+					th.style.borderRightColor = 'black';
+					th.textContent = 'PM';
+					break;
+			}
+			scheduleHeader3.appendChild(th);
 		}
-		scheduleHeader3.appendChild(th);
 	}
 	return;
 }
@@ -397,25 +418,38 @@ function drawScheduleHeader() {
 function drawSchedule(id, supplementMasterList) {
 	const container = document.getElementById(id);
 	container.innerHTML = '';
-	Object.keys(supplementMasterList).forEach(startDay => {
-		const supplementStartDayList = supplementMasterList[startDay];
-		Object.keys(supplementStartDayList).forEach(required => {
-			const supplements = supplementStartDayList[required];
+	
+	let weeks = [];
+	let fasting = false;
+	Object.keys(supplementMasterList).forEach(week => {
+		const theWeek = parseInt(week);
+		if (theWeek == 99) {
+			fasting = true;
+		} else {
+			weeks.push(theWeek);
+		}
+	});
+	const totalColumns = 3 * weeks.length + (fasting ? 1 : 0);
+	
+	Object.keys(supplementMasterList).forEach(startWeek => {
+		const supplementStartWeekList = supplementMasterList[startWeek];
+		Object.keys(supplementStartWeekList).forEach(required => {
+			const supplements = supplementStartWeekList[required];
 			supplements.forEach(supplement => {
 				if (localStorage.getItem(supplement.key) == 'true') {
 					const row = document.createElement('tr');
-					
 					const name = document.createElement('td');
 					name.style.borderRightColor = 'black';
 					name.textContent = supplement.name;
 					row.appendChild(name);
-					if (supplement.startDay == 90) {
+					
+					if (supplement.startWeek == 99) {
 						const filler = document.createElement('td');
-						filler.setAttribute('colspan', 3 * maxStartDay + 1);
+						filler.setAttribute('colspan', 3 * weeks.length + 1);
 						filler.style.borderLeftColor = 'black';
 						filler.style.borderRightColor = 'black';
 						row.appendChild(filler);
-						for (let i=0; i<fastingDays; i++) {
+						for (let i=0; i<1; i++) {
 							if (!(supplement.dosesPerDay%3)) {
 								const am = document.createElement('td');
 								am.className = 'align-middle text-center';
@@ -457,83 +491,92 @@ function drawSchedule(id, supplementMasterList) {
 							}
 						}
 					} else {
-						if (supplement.startDay > 1) {
+						if (supplement.startWeek > 1) {
 							const filler = document.createElement('td');
-							filler.setAttribute('colspan', 3 * (supplement.startDay - 1));
+							filler.setAttribute('colspan', 3 * weeks.indexOf(supplement.startWeek));
 							filler.style.borderLeftColor = 'black';
 							filler.style.borderRightColor = 'black';
 							row.appendChild(filler);
 						}
-						for (let i=0; i<(maxStartDay - supplement.startDay + 1); i++) {
-							if (supplement.timeOfDay) {
-								const am = document.createElement('td');
-								am.className = 'align-middle text-center';
-								am.style.borderLeftColor = 'black';
-								if (supplement.timeOfDay == 'AM') {
-									am.textContent = supplement.dosesPerDay + '×';
-								}
-								row.appendChild(am);
-								const m = document.createElement('td');
-								row.appendChild(m);
-								const pm = document.createElement('td');
-								pm.className = 'align-middle text-center';
-								pm.style.borderRightColor = 'black';
-								if (supplement.timeOfDay == 'PM') {
-									pm.textContent = supplement.dosesPerDay + '×';
-								}
-								row.appendChild(pm);
-							} else {
-								if (!(supplement.dosesPerDay%3)) {
+						for (let i=0; i<weeks.length; i++) {
+							if (supplement.startWeek <= weeks[i]) {
+								if (supplement.timeOfDay) {
 									const am = document.createElement('td');
 									am.className = 'align-middle text-center';
 									am.style.borderLeftColor = 'black';
-									am.textContent = (supplement.dosesPerDay / 3) + '×';
+									if (supplement.timeOfDay == 'AM') {
+										am.textContent = supplement.dosesPerDay + '×';
+									}
 									row.appendChild(am);
 									const m = document.createElement('td');
 									m.className = 'align-middle text-center';
-									m.textContent = (supplement.dosesPerDay / 3) + '×';
+									m.style.borderLeftColor = 'black';
+									if (supplement.timeOfDay == 'M') {
+										m.textContent = supplement.dosesPerDay + '×';
+									}
 									row.appendChild(m);
 									const pm = document.createElement('td');
 									pm.className = 'align-middle text-center';
 									pm.style.borderRightColor = 'black';
-									pm.textContent = (supplement.dosesPerDay / 3) + '×';
-									row.appendChild(pm);
-								} else if (!(supplement.dosesPerDay%2)) {
-									const am = document.createElement('td');
-									am.className = 'align-middle text-center';
-									am.style.borderLeftColor = 'black';
-									am.textContent = (supplement.dosesPerDay / 2) + '×';
-									row.appendChild(am);
-									const m = document.createElement('td');
-									row.appendChild(m);
-									const pm = document.createElement('td');
-									pm.className = 'align-middle text-center';
-									pm.style.borderRightColor = 'black';
-									pm.textContent = (supplement.dosesPerDay / 2) + '×';
+									if (supplement.timeOfDay == 'PM') {
+										pm.textContent = supplement.dosesPerDay + '×';
+									}
 									row.appendChild(pm);
 								} else {
-									const am = document.createElement('td');
-									am.className = 'align-middle text-center';
-									am.style.borderLeftColor = 'black';
-									am.textContent = supplement.dosesPerDay + '×';
-									row.appendChild(am);
-									const m = document.createElement('td');
-									m.style.borderRightColor = 'black';
-									m.setAttribute('colspan', 2);
-									row.appendChild(m);
+									if (!(supplement.dosesPerDay%3)) {
+										const am = document.createElement('td');
+										am.className = 'align-middle text-center';
+										am.style.borderLeftColor = 'black';
+										am.textContent = (supplement.dosesPerDay / 3) + '×';
+										row.appendChild(am);
+										const m = document.createElement('td');
+										m.className = 'align-middle text-center';
+										m.textContent = (supplement.dosesPerDay / 3) + '×';
+										row.appendChild(m);
+										const pm = document.createElement('td');
+										pm.className = 'align-middle text-center';
+										pm.style.borderRightColor = 'black';
+										pm.textContent = (supplement.dosesPerDay / 3) + '×';
+										row.appendChild(pm);
+									} else if (!(supplement.dosesPerDay%2)) {
+										const am = document.createElement('td');
+										am.className = 'align-middle text-center';
+										am.style.borderLeftColor = 'black';
+										am.textContent = (supplement.dosesPerDay / 2) + '×';
+										row.appendChild(am);
+										const m = document.createElement('td');
+										row.appendChild(m);
+										const pm = document.createElement('td');
+										pm.className = 'align-middle text-center';
+										pm.style.borderRightColor = 'black';
+										pm.textContent = (supplement.dosesPerDay / 2) + '×';
+										row.appendChild(pm);
+									} else {
+										const am = document.createElement('td');
+										am.className = 'align-middle text-center';
+										am.style.borderLeftColor = 'black';
+										am.textContent = supplement.dosesPerDay + '×';
+										row.appendChild(am);
+										const m = document.createElement('td');
+										m.style.borderRightColor = 'black';
+										m.setAttribute('colspan', 2);
+										row.appendChild(m);
+									}
 								}
 							}
 						}
-						const thHellips = document.createElement('td');
-						thHellips.className = 'align-middle text-center';
-						thHellips.style.borderLeftColor = 'black';
-						thHellips.style.borderRightColor = 'black';
-						thHellips.textContent = ' … ';
-						row.appendChild(thHellips);
-						const filler = document.createElement('td');
-						filler.setAttribute('colspan', 3 * fastingDays);
-						filler.style.borderRightColor = 'black';
-						row.appendChild(filler);
+						if (fasting) {
+							const thHellips = document.createElement('td');
+							thHellips.className = 'align-middle text-center';
+							thHellips.style.borderLeftColor = 'black';
+							thHellips.style.borderRightColor = 'black';
+							thHellips.textContent = ' … ';
+							row.appendChild(thHellips);
+							const filler = document.createElement('td');
+							filler.setAttribute('colspan', 3);
+							filler.style.borderRightColor = 'black';
+							row.appendChild(filler);
+						}
 					}
 					
 					container.appendChild(row);
